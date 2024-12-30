@@ -4,6 +4,7 @@ use crate::models::{
 };
 use crate::repo;
 use anyhow::Result;
+use rust_decimal_macros::dec;
 use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
@@ -94,21 +95,21 @@ where
         &mut self,
         tx: &Transaction,
         client_tx: &ClientTx,
-        amount: f64,
+        amount: rust_decimal::Decimal,
     ) -> Result<(), PaymentProcessorError> {
         self.save_transaction(tx, &client_tx.transaction_id).await?;
 
         // adding the deposit amount to the client's available and total assets
         let diff = ClientAssets {
             available: amount,
-            held: 0.0,
+            held: dec!(0.0),
             total: amount,
         };
         // in case if the client update operation fails, we could retry the operation,
         // as the transaction stored in append only manner and will not be duplicated by transaction_id.
         self.calc_client_account(&client_tx.client_id, diff).await?;
 
-        debug!(client_id = %client_tx.client_id, transaction_id = %client_tx.transaction_id, amount, "Processed deposit");
+        debug!(client_id = %client_tx.client_id, transaction_id = %client_tx.transaction_id, %amount, "Processed deposit");
         Ok(())
     }
 
@@ -116,21 +117,21 @@ where
         &mut self,
         tx: &Transaction,
         client_tx: &ClientTx,
-        amount: f64,
+        amount: rust_decimal::Decimal,
     ) -> Result<(), PaymentProcessorError> {
         self.save_transaction(tx, &client_tx.transaction_id).await?;
 
         // subtracting the withdrawal amount from the client's available and total assets
         let diff = ClientAssets {
             available: -amount,
-            held: 0.0,
+            held: dec!(0.0),
             total: -amount,
         };
         // in case if the client update operation fails, we could retry the operation,
         // as the transaction stored in append only manner and will not be duplicated by transaction_id.
         self.calc_client_account(&client_tx.client_id, diff).await?;
 
-        debug!(client_id = %client_tx.client_id, transaction_id = %client_tx.transaction_id, amount, "Processed withdrawal");
+        debug!(client_id = %client_tx.client_id, transaction_id = %client_tx.transaction_id, %amount, "Processed withdrawal");
         Ok(())
     }
 
@@ -145,7 +146,7 @@ where
                 // transaction the amount should be held, available should be decreased
                 available: -amount,
                 held: amount,
-                total: 0.0,
+                total: dec!(0.0),
             },
 
             StoredTransaction {
@@ -153,9 +154,9 @@ where
                 transaction: Transaction::Withdrawal { amount, .. },
             } => ClientAssets {
                 // amount should be held
-                available: 0.0,
+                available: dec!(0.0),
                 held: amount,
-                total: 0.0,
+                total: dec!(0.0),
             },
 
             _ => {
@@ -187,7 +188,7 @@ where
                 ClientAssets {
                     available: amount,
                     held: -amount,
-                    total: 0.0,
+                    total: dec!(0.0),
                 }
             }
 
@@ -198,9 +199,9 @@ where
             // amount should be released from held
             {
                 ClientAssets {
-                    available: 0.0,
+                    available: dec!(0.0),
                     held: -amount,
-                    total: 0.0,
+                    total: dec!(0.0),
                 }
             }
 
@@ -235,7 +236,7 @@ where
             // amount should be released from held and deducted from available
             {
                 ClientAssets {
-                    available: 0.0,
+                    available: dec!(0.0),
                     held: -amount,
                     total: -amount,
                 }
@@ -376,7 +377,7 @@ mod tests {
         let client_tx = gen_client_tx();
         let tx = Transaction::Deposit {
             client_tx,
-            amount: 100.0,
+            amount: dec!(100.0),
         };
 
         transactions.expect_save().returning(|_, _| Ok(()));
@@ -391,9 +392,9 @@ mod tests {
         assert_eq!(
             client.assets,
             ClientAssets {
-                available: 100.0,
-                held: 0.0,
-                total: 100.0,
+                available: dec!(100.0),
+                held: dec!(0.0),
+                total: dec!(100.0),
             }
         );
     }
@@ -405,7 +406,7 @@ mod tests {
         let client_tx = gen_client_tx();
         let tx = Transaction::Withdrawal {
             client_tx,
-            amount: 100.0,
+            amount: dec!(100.0),
         };
 
         transactions.expect_save().returning(|_, _| Ok(()));
@@ -430,7 +431,7 @@ mod tests {
         processor
             .process_transaction(Transaction::Deposit {
                 client_tx,
-                amount: 200.0,
+                amount: dec!(200.0),
             })
             .await?;
 
@@ -439,7 +440,7 @@ mod tests {
                 client_id: ClientId(1),
                 transaction_id: TransactionId(2),
             },
-            amount: 100.0,
+            amount: dec!(100.0),
         };
 
         assert!(
@@ -450,9 +451,9 @@ mod tests {
         assert_eq!(
             got.assets,
             ClientAssets {
-                available: 100.0,
-                held: 0.0,
-                total: 100.0,
+                available: dec!(100.0),
+                held: dec!(0.0),
+                total: dec!(100.0),
             }
         );
         Ok(())
@@ -468,7 +469,7 @@ mod tests {
         processor
             .process_transaction(Transaction::Deposit {
                 client_tx: client_tx.clone(),
-                amount: 200.0,
+                amount: dec!(200.0),
             })
             .await?;
 
@@ -482,9 +483,9 @@ mod tests {
         assert_eq!(
             got.assets,
             ClientAssets {
-                available: 0.0,
-                held: 200.0,
-                total: 200.0,
+                available: dec!(0.0),
+                held: dec!(200.0),
+                total: dec!(200.0),
             }
         );
         Ok(())
@@ -501,7 +502,7 @@ mod tests {
         processor
             .process_transaction(Transaction::Deposit {
                 client_tx: client_tx.clone(),
-                amount: 200.0,
+                amount: dec!(200.0),
             })
             .await?;
 
@@ -521,9 +522,9 @@ mod tests {
         assert_eq!(
             got.assets,
             ClientAssets {
-                available: 200.0,
-                held: 0.0,
-                total: 200.0,
+                available: dec!(200.0),
+                held: dec!(0.0),
+                total: dec!(200.0),
             }
         );
         Ok(())
@@ -540,7 +541,7 @@ mod tests {
         processor
             .process_transaction(Transaction::Deposit {
                 client_tx: client_tx.clone(),
-                amount: 200.0,
+                amount: dec!(200.0),
             })
             .await?;
 
@@ -562,9 +563,9 @@ mod tests {
             Client {
                 client_id: ClientId(1),
                 assets: ClientAssets {
-                    available: 0.0,
-                    held: 0.0,
-                    total: 0.0,
+                    available: dec!(0.0),
+                    held: dec!(0.0),
+                    total: dec!(0.0),
                 },
                 locked: true,
             }
@@ -581,9 +582,9 @@ mod tests {
             .calc_client_account(
                 &ClientId(1),
                 ClientAssets {
-                    available: 200.0,
-                    held: 0.0,
-                    total: 200.0,
+                    available: dec!(200.0),
+                    held: dec!(0.0),
+                    total: dec!(200.0),
                 },
             )
             .await
@@ -594,7 +595,7 @@ mod tests {
         processor
             .process_transaction(Transaction::Withdrawal {
                 client_tx: client_tx.clone(),
-                amount: 200.0,
+                amount: dec!(200.0),
             })
             .await?;
 
@@ -602,9 +603,9 @@ mod tests {
         assert_eq!(
             got.assets,
             ClientAssets {
-                available: 0.0,
-                held: 0.0,
-                total: 0.0,
+                available: dec!(0.0),
+                held: dec!(0.0),
+                total: dec!(0.0),
             }
         );
 
@@ -618,9 +619,9 @@ mod tests {
         assert_eq!(
             got.assets,
             ClientAssets {
-                available: 0.0,
-                held: 200.0,
-                total: 0.0,
+                available: dec!(0.0),
+                held: dec!(200.0),
+                total: dec!(0.0),
             }
         );
         Ok(())
@@ -636,9 +637,9 @@ mod tests {
             .calc_client_account(
                 &ClientId(1),
                 ClientAssets {
-                    available: 200.0,
-                    held: 0.0,
-                    total: 200.0,
+                    available: dec!(200.0),
+                    held: dec!(0.0),
+                    total: dec!(200.0),
                 },
             )
             .await
@@ -649,7 +650,7 @@ mod tests {
         processor
             .process_transaction(Transaction::Withdrawal {
                 client_tx: client_tx.clone(),
-                amount: 200.0,
+                amount: dec!(200.0),
             })
             .await?;
 
@@ -669,9 +670,9 @@ mod tests {
         assert_eq!(
             got.assets,
             ClientAssets {
-                available: 0.0,
-                held: 0.0,
-                total: 0.0,
+                available: dec!(0.0),
+                held: dec!(0.0),
+                total: dec!(0.0),
             }
         );
         Ok(())
@@ -687,9 +688,9 @@ mod tests {
             .calc_client_account(
                 &ClientId(1),
                 ClientAssets {
-                    available: 200.0,
-                    held: 0.0,
-                    total: 200.0,
+                    available: dec!(200.0),
+                    held: dec!(0.0),
+                    total: dec!(200.0),
                 },
             )
             .await
@@ -700,7 +701,7 @@ mod tests {
         processor
             .process_transaction(Transaction::Withdrawal {
                 client_tx: client_tx.clone(),
-                amount: 200.0,
+                amount: dec!(200.0),
             })
             .await?;
 
@@ -722,9 +723,9 @@ mod tests {
             Client {
                 client_id: ClientId(1),
                 assets: ClientAssets {
-                    available: 200.0,
-                    held: 0.0,
-                    total: 200.0,
+                    available: dec!(200.0),
+                    held: dec!(0.0),
+                    total: dec!(200.0),
                 },
                 locked: true,
             }
@@ -790,7 +791,7 @@ mod tests {
         processor
             .process_transaction(Transaction::Deposit {
                 client_tx: client_tx.clone(),
-                amount: 200.0,
+                amount: dec!(200.0),
             })
             .await
             .unwrap();
@@ -814,7 +815,7 @@ mod tests {
         processor
             .process_transaction(Transaction::Deposit {
                 client_tx: client_tx.clone(),
-                amount: 200.0,
+                amount: dec!(200.0),
             })
             .await
             .unwrap();

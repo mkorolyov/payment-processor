@@ -33,12 +33,12 @@ pub enum Transaction {
     Deposit {
         #[serde(flatten)]
         client_tx: ClientTx,
-        amount: f64,
+        amount: rust_decimal::Decimal,
     },
     Withdrawal {
         #[serde(flatten)]
         client_tx: ClientTx,
-        amount: f64,
+        amount: rust_decimal::Decimal,
     },
     Dispute {
         #[serde(flatten)]
@@ -56,9 +56,9 @@ pub enum Transaction {
 
 #[derive(Debug, Serialize, Default, Clone, PartialEq)]
 pub struct ClientAssets {
-    pub available: f64,
-    pub held: f64,
-    pub total: f64,
+    pub available: rust_decimal::Decimal,
+    pub held: rust_decimal::Decimal,
+    pub total: rust_decimal::Decimal,
 }
 
 #[derive(Debug, Serialize, Default, Clone, PartialEq)]

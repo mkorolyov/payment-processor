@@ -2,6 +2,7 @@ use crate::models;
 use crate::models::{ClientId, Transaction, TransactionId};
 use anyhow::Result;
 use csv::ReaderBuilder;
+use rust_decimal::prelude::Zero;
 use std::fs::File;
 use std::io::BufReader;
 use tokio::sync::mpsc::Sender;
@@ -70,7 +71,7 @@ struct RawTransaction {
     transaction_type: String,
     client: ClientId,
     tx: TransactionId,
-    amount: Option<f64>,
+    amount: Option<rust_decimal::Decimal>,
 }
 
 impl TryFrom<Result<RawTransaction, csv::Error>> for Transaction {
@@ -93,6 +94,9 @@ impl TryFrom<RawTransaction> for Transaction {
                 let amount = raw
                     .amount
                     .ok_or_else(|| anyhow::anyhow!("Missing amount"))?;
+                if amount < rust_decimal::Decimal::zero() {
+                    return Err(anyhow::anyhow!("Amount must be positive"));
+                }
                 Ok(Transaction::Deposit {
                     client_tx: models::ClientTx {
                         client_id: raw.client,
@@ -105,6 +109,9 @@ impl TryFrom<RawTransaction> for Transaction {
                 let amount = raw
                     .amount
                     .ok_or_else(|| anyhow::anyhow!("Missing amount"))?;
+                if amount < rust_decimal::Decimal::zero() {
+                    return Err(anyhow::anyhow!("Amount must be positive"));
+                }
                 Ok(Transaction::Withdrawal {
                     client_tx: models::ClientTx {
                         client_id: raw.client,
@@ -143,6 +150,7 @@ mod tests {
     use super::*;
     use crate::models::ClientTx;
     use csv::ReaderBuilder;
+    use rust_decimal_macros::dec;
     use std::fmt;
 
     struct TestCase {
@@ -168,7 +176,7 @@ mod tests {
                         client_id: ClientId(1),
                         transaction_id: TransactionId(1),
                     },
-                    amount: 100.0,
+                    amount: dec!(100.0),
                 }),
             },
             TestCase {
@@ -179,7 +187,7 @@ mod tests {
                         client_id: ClientId(2),
                         transaction_id: TransactionId(2),
                     },
-                    amount: 50.0,
+                    amount: dec!(50.0),
                 }),
             },
             TestCase {

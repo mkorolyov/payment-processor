@@ -9,9 +9,9 @@ use tracing::error;
 #[derive(Serialize)]
 struct CSVClient {
     client_id: String,
-    available: f64,
-    held: f64,
-    total: f64,
+    available: rust_decimal::Decimal,
+    held: rust_decimal::Decimal,
+    total: rust_decimal::Decimal,
     locked: bool,
 }
 

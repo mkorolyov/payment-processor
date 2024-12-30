@@ -2,6 +2,7 @@ use crate::models::{Client, ClientAssets, ClientId};
 use crate::repo::Clients;
 use anyhow::Result;
 use async_trait::async_trait;
+use rust_decimal_macros::dec;
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::sync::RwLock;
@@ -20,7 +21,8 @@ impl InMemoryRepo {
 
     fn add_diff(diff: &ClientAssets, client: &Client) -> Result<Client> {
         // check if the client has enough funds
-        if client.assets.available + diff.available < 0.0 || client.assets.total + diff.total < 0.0
+        if client.assets.available + diff.available < dec!(0.0)
+            || client.assets.total + diff.total < dec!(0.0)
         {
             return Err(anyhow::anyhow!("Insufficient funds"));
         }
@@ -59,7 +61,7 @@ impl Clients for InMemoryRepo {
                 self.thread_safe_insert(client_id.clone(), new_client);
             }
             None => {
-                if diff.total < 0.0 {
+                if diff.total < dec!(0.0) {
                     return Err(anyhow::anyhow!("Insufficient funds"));
                 }
                 self.thread_safe_insert(
@@ -109,22 +111,22 @@ mod tests {
         let client = Client {
             client_id: ClientId(1),
             assets: ClientAssets {
-                available: 100.0,
-                held: 50.0,
-                total: 150.0,
+                available: dec!(100.0),
+                held: dec!(50.0),
+                total: dec!(150.0),
             },
             locked: false,
         };
         let diff = ClientAssets {
-            available: 50.0,
-            held: 20.0,
-            total: 70.0,
+            available: dec!(50.0),
+            held: dec!(20.0),
+            total: dec!(70.0),
         };
 
         let result = InMemoryRepo::add_diff(&diff, &client).unwrap();
-        assert_eq!(result.assets.available, 150.0);
-        assert_eq!(result.assets.held, 70.0);
-        assert_eq!(result.assets.total, 220.0);
+        assert_eq!(result.assets.available, dec!(150.0));
+        assert_eq!(result.assets.held, dec!(70.0));
+        assert_eq!(result.assets.total, dec!(220.0));
     }
 
     #[test]
@@ -132,22 +134,22 @@ mod tests {
         let client = Client {
             client_id: ClientId(1),
             assets: ClientAssets {
-                available: 100.0,
-                held: 50.0,
-                total: 150.0,
+                available: dec!(100.0),
+                held: dec!(50.0),
+                total: dec!(150.0),
             },
             locked: false,
         };
         let diff = ClientAssets {
-            available: -50.0,
-            held: -20.0,
-            total: -70.0,
+            available: dec!(-50.0),
+            held: dec!(-20.0),
+            total: dec!(-70.0),
         };
 
         let result = InMemoryRepo::add_diff(&diff, &client).unwrap();
-        assert_eq!(result.assets.available, 50.0);
-        assert_eq!(result.assets.held, 30.0);
-        assert_eq!(result.assets.total, 80.0);
+        assert_eq!(result.assets.available, dec!(50.0));
+        assert_eq!(result.assets.held, dec!(30.0));
+        assert_eq!(result.assets.total, dec!(80.0));
     }
 
     #[test]
@@ -155,16 +157,16 @@ mod tests {
         let client = Client {
             client_id: ClientId(1),
             assets: ClientAssets {
-                available: 100.0,
-                held: 50.0,
-                total: 150.0,
+                available: dec!(100.0),
+                held: dec!(50.0),
+                total: dec!(150.0),
             },
             locked: false,
         };
         let diff = ClientAssets {
-            available: -150.0,
-            held: 0.0,
-            total: -150.0,
+            available: dec!(-150.0),
+            held: dec!(0.0),
+            total: dec!(-150.0),
         };
 
         let result = InMemoryRepo::add_diff(&diff, &client);
