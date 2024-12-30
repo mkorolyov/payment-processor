@@ -14,3 +14,4 @@ serde = { version = "1.0.216", features = ["derive"] }
 tokio-util = { version = "0.7.13", features = ["rt"] }
 thiserror = "2.0.9"
 mockall = "0.13.1"
+async-trait = "0.1.83"

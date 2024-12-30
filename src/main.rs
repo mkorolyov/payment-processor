@@ -8,6 +8,9 @@ mod transaction_repo;
 
 use crate::output::output_accounts;
 use crate::processor::PaymentProcessor;
+use crate::repo::Clients;
+use std::ops::Deref;
+use std::sync::Arc;
 use std::{env, process};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
@@ -17,7 +20,7 @@ use tracing::{error, info};
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
+        .with_max_level(tracing::Level::ERROR)
         .init();
 
     // reading the input file path from the command line arguments
@@ -29,9 +32,7 @@ async fn main() -> anyhow::Result<()> {
     let file_path = args[1].clone(); // Get the input file path
 
     // Create a channel for transactions
-    let (tx, rx) = mpsc::channel(10);
-    // shutdown channels
-    let (shutdown_tx, mut shutdown_rx) = mpsc::unbounded_channel();
+    let (tx, rx) = mpsc::channel(1);
 
     // Create a CancellationToken for graceful shutdown
     let shutdown_token = CancellationToken::new();
@@ -44,29 +45,27 @@ async fn main() -> anyhow::Result<()> {
     tracker.spawn(async move {
         let transaction_producer =
             producers::CSVTransactionProducer::new(file_path, producer_shutdown_token).clone();
-        transaction_producer
-            .run(tx)
-            .await
-            .expect("Failed to run transaction producer");
+
+        match transaction_producer.run(tx).await {
+            Ok(_) => info!("CSV Producer finished"),
+            Err(err) => error!(?err, "CSV Producer failed"),
+        }
     });
+
+    let clients = Arc::new(client_repo::InMemoryRepo::new());
+    let transactions = transaction_repo::InMemoryRepo::new();
 
     // Spawn the processor task
     let processor_shutdown_token = shutdown_token.clone();
+    let finished_shutdown_token = shutdown_token.clone();
+    let processor_clients = Arc::clone(&clients);
     tracker.spawn(async move {
-        let clients = client_repo::InMemoryRepo::new();
-        let transactions = transaction_repo::InMemoryRepo::new();
-        let mut processor = PaymentProcessor::new(clients, transactions);
-
+        let mut processor = PaymentProcessor::new(processor_clients.deref(), transactions);
         processor
             .process_transactions(rx, processor_shutdown_token)
             .await;
 
-        let clients_stream = processor.stream_clients();
-        output_accounts(clients_stream).await;
-
-        shutdown_tx
-            .send(())
-            .expect("Failed to send shutdown signal");
+        finished_shutdown_token.cancel()
     });
 
     // Spawn a signal handler for graceful shutdown
@@ -77,8 +76,8 @@ async fn main() -> anyhow::Result<()> {
                 info!("Received Ctrl+C, initiating shutdown...");
                 shutdown_signal_token.cancel(); // Notify all tasks to stop
             }
-            _ = shutdown_rx.recv() => {
-                info!("Received shutdown signal, initiating shutdown...");
+            _ = shutdown_token.cancelled() => {
+                info!("finished, initiating shutdown...");
                 shutdown_signal_token.cancel(); // Notify all tasks to stop
             }
         }
@@ -87,6 +86,8 @@ async fn main() -> anyhow::Result<()> {
     // Wait for all tasks to complete or cancel
     tracker.close();
     tracker.wait().await;
+
+    output_accounts(clients.stream_all()).await;
 
     info!("Application shutdown complete.");
     Ok(())

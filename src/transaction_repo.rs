@@ -1,9 +1,10 @@
-use crate::models::{StoredTransaction, Transaction, TransactionStatus};
+use crate::models::{StoredTransaction, Transaction, TransactionId, TransactionStatus};
 use crate::repo::Transactions;
+use async_trait::async_trait;
 use std::collections::HashMap;
 
 pub struct InMemoryRepo {
-    transactions: HashMap<u32, StoredTransaction>,
+    transactions: HashMap<TransactionId, StoredTransaction>,
 }
 
 impl InMemoryRepo {
@@ -14,14 +15,15 @@ impl InMemoryRepo {
     }
 }
 
+#[async_trait]
 impl Transactions for InMemoryRepo {
-    fn get(&self, tx: u32) -> Option<StoredTransaction> {
-        self.transactions.get(&tx).cloned()
+    async fn get(&self, tx: &TransactionId) -> Option<StoredTransaction> {
+        self.transactions.get(tx).cloned()
     }
 
-    fn save(&mut self, tx: u32, transaction: &Transaction) -> anyhow::Result<()> {
+    async fn save(&mut self, tx: &TransactionId, transaction: &Transaction) -> anyhow::Result<()> {
         self.transactions.insert(
-            tx,
+            tx.clone(),
             StoredTransaction {
                 transaction: transaction.clone(),
                 status: TransactionStatus::Normal,
@@ -30,8 +32,12 @@ impl Transactions for InMemoryRepo {
         Ok(())
     }
 
-    fn update_status(&mut self, tx: u32, status: TransactionStatus) -> anyhow::Result<()> {
-        if let Some(t) = self.transactions.get_mut(&tx) {
+    async fn update_status(
+        &mut self,
+        tx: &TransactionId,
+        status: TransactionStatus,
+    ) -> anyhow::Result<()> {
+        if let Some(t) = self.transactions.get_mut(tx) {
             t.status = status;
             Ok(())
         } else {

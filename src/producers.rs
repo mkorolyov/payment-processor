@@ -1,12 +1,12 @@
 use crate::models;
-use crate::models::Transaction;
+use crate::models::{ClientId, Transaction, TransactionId};
 use anyhow::Result;
 use csv::ReaderBuilder;
 use std::fs::File;
 use std::io::BufReader;
 use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 #[derive(Clone)]
 pub struct CSVTransactionProducer {
@@ -37,27 +37,26 @@ impl CSVTransactionProducer {
 
             let raw_transaction = match result {
                 Ok(raw) => raw,
-                Err(e) => {
-                    error!("Failed to parse CSV row: {:?}", e);
+                Err(err) => {
+                    error!(?err, "Failed to parse CSV row");
                     continue;
                 }
             };
 
             let transaction = match Transaction::try_from(raw_transaction) {
                 Ok(transaction) => transaction,
-                Err(e) => {
-                    error!("Failed to parse transaction: {:?}", e);
+                Err(err) => {
+                    error!(?err, "Failed to parse transaction");
                     continue;
                 }
             };
 
-            if let Err(e) = tx.send(transaction).await {
-                error!("Transaction channel closed, stopping CSV Producer: {:?}", e);
+            if let Err(err) = tx.send(transaction).await {
+                warn!(?err, "Transaction channel closed, stopping CSV Producer");
                 return Ok(());
             }
         }
 
-        info!("CSV Producer finished");
         Ok(())
     }
 }
@@ -69,8 +68,8 @@ impl CSVTransactionProducer {
 struct RawTransaction {
     #[serde(rename = "type")]
     transaction_type: String,
-    client: u16,
-    tx: u32,
+    client: ClientId,
+    tx: TransactionId,
     amount: Option<f64>,
 }
 
@@ -166,8 +165,8 @@ mod tests {
                 input: "type,client,tx,amount\ndeposit,1,1,100.0",
                 expected: Some(Transaction::Deposit {
                     client_tx: ClientTx {
-                        client_id: 1,
-                        transaction_id: 1,
+                        client_id: ClientId(1),
+                        transaction_id: TransactionId(1),
                     },
                     amount: 100.0,
                 }),
@@ -177,8 +176,8 @@ mod tests {
                 input: "type,client,tx,amount\nwithdrawal,2,2,50.0",
                 expected: Some(Transaction::Withdrawal {
                     client_tx: ClientTx {
-                        client_id: 2,
-                        transaction_id: 2,
+                        client_id: ClientId(2),
+                        transaction_id: TransactionId(2),
                     },
                     amount: 50.0,
                 }),
@@ -188,8 +187,8 @@ mod tests {
                 input: "type,client,tx,amount\ndispute,3,3,",
                 expected: Some(Transaction::Dispute {
                     client_tx: ClientTx {
-                        client_id: 3,
-                        transaction_id: 3,
+                        client_id: ClientId(3),
+                        transaction_id: TransactionId(3),
                     },
                 }),
             },
@@ -198,8 +197,8 @@ mod tests {
                 input: "type,client,tx,amount\nresolve,4,4,",
                 expected: Some(Transaction::Resolve {
                     client_tx: ClientTx {
-                        client_id: 4,
-                        transaction_id: 4,
+                        client_id: ClientId(4),
+                        transaction_id: TransactionId(4),
                     },
                 }),
             },
@@ -208,8 +207,8 @@ mod tests {
                 input: "type,client,tx,amount\nchargeback,5,5,",
                 expected: Some(Transaction::Chargeback {
                     client_tx: ClientTx {
-                        client_id: 5,
-                        transaction_id: 5,
+                        client_id: ClientId(5),
+                        transaction_id: TransactionId(5),
                     },
                 }),
             },

@@ -6,3 +6,7 @@ withdrawal, 1, 4, 150
 deposit, 2, 5, 500
 withdrawal, 2, 6, 250
 deposit, 3, 7, 1000
+dispute, 3, 7,
+resolve, 3, 7,
+dispute, 2, 6,
+chargeback, 2, 6,

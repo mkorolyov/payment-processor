@@ -1,11 +1,30 @@
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
+
+#[derive(Debug, Deserialize, Serialize, Default, Clone, PartialEq, Hash, Eq)]
+pub struct ClientId(pub u16);
+
+impl Display for ClientId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(Debug, Deserialize, Clone, PartialEq, Hash, Eq)]
+pub struct TransactionId(pub u32);
+
+impl Display for TransactionId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 #[derive(Debug, Deserialize, Clone, PartialEq)]
 pub struct ClientTx {
     #[serde(rename = "client")]
-    pub client_id: u16,
+    pub client_id: ClientId,
     #[serde(rename = "tx")]
-    pub transaction_id: u32,
+    pub transaction_id: TransactionId,
 }
 
 #[derive(Debug, Deserialize, Clone, PartialEq)]
@@ -35,12 +54,19 @@ pub enum Transaction {
     },
 }
 
-#[derive(Debug, Serialize, Default, Clone)]
-pub struct Client {
-    pub client: u16,
+#[derive(Debug, Serialize, Default, Clone, PartialEq)]
+pub struct ClientAssets {
     pub available: f64,
     pub held: f64,
     pub total: f64,
+}
+
+#[derive(Debug, Serialize, Default, Clone, PartialEq)]
+pub struct Client {
+    #[serde(rename = "client")]
+    pub client_id: ClientId,
+    #[serde(flatten)]
+    pub assets: ClientAssets,
     pub locked: bool,
 }
 
