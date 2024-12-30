@@ -1,5 +1,5 @@
 # Toy Payment Engine
-###Demo:
+### Demo:
 
 Run the following command to execute the application:
 
