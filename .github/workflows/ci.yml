@@ -25,6 +25,8 @@ jobs:
           toolchain: ${{ env.RUST_VERSION_STABLE }}
           profile: minimal
           override: true
+      - name: Install clippy
+        run: rustup component add --toolchain 1.83.0-x86_64-unknown-linux-gnu clippy
       - name: Run clippy
         run: cargo clippy --all-targets -- -D warnings
       - name: Run rustfmt
