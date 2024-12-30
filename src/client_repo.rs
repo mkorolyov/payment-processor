@@ -20,10 +20,10 @@ impl InMemoryRepo {
 
     fn add_diff(diff: &ClientAssets, client: &Client) -> Result<Client> {
         // check if the client has enough funds
-        if client.assets.available + diff.available < 0.0 || client.assets.total + diff.total < 0.0 {
+        if client.assets.available + diff.available < 0.0 || client.assets.total + diff.total < 0.0
+        {
             return Err(anyhow::anyhow!("Insufficient funds"));
         }
-        
 
         let new_client = Client {
             client_id: client.client_id.clone(),
