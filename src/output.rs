@@ -8,7 +8,7 @@ use tracing::error;
 
 #[derive(Serialize)]
 struct CSVClient {
-    client_id: String,
+    client: String,
     available: rust_decimal::Decimal,
     held: rust_decimal::Decimal,
     total: rust_decimal::Decimal,
@@ -18,10 +18,10 @@ struct CSVClient {
 impl From<models::Client> for CSVClient {
     fn from(client: models::Client) -> Self {
         Self {
-            client_id: client.client_id.to_string(),
-            available: client.assets.available,
-            held: client.assets.held,
-            total: client.assets.total,
+            client: client.client_id.to_string(),
+            available: client.assets.available.round_dp(4),
+            held: client.assets.held.round_dp(4),
+            total: client.assets.total.round_dp(4),
             locked: client.locked,
         }
     }

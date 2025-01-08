@@ -32,7 +32,7 @@ async fn main() -> anyhow::Result<()> {
     let file_path = args[1].clone(); // Get the input file path
 
     // Create a channel for transactions
-    let (tx, rx) = mpsc::channel(1);
+    let (tx, rx) = mpsc::channel(10);
 
     // Create a CancellationToken for graceful shutdown
     let shutdown_token = CancellationToken::new();

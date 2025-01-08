@@ -56,7 +56,7 @@ impl Clients for InMemoryRepo {
 
     async fn calc_client_account(&self, client_id: &ClientId, diff: ClientAssets) -> Result<()> {
         match self.thread_safe_get(client_id) {
-            Some(client) => {
+            Some(client) if !client.locked => {
                 let new_client = Self::add_diff(&diff, &client)?;
                 self.thread_safe_insert(client_id.clone(), new_client);
             }
@@ -72,6 +72,9 @@ impl Clients for InMemoryRepo {
                         locked: false,
                     },
                 );
+            }
+            _ => {
+                return Err(anyhow::anyhow!("Client is locked"));
             }
         };
         Ok(())
@@ -171,5 +174,21 @@ mod tests {
 
         let result = InMemoryRepo::add_diff(&diff, &client);
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn calc_on_locked_client_account() -> Result<()> {
+        let repo = InMemoryRepo::new();
+        let client_id = ClientId(1);
+        let diff = ClientAssets {
+            available: dec!(100.0),
+            held: dec!(50.0),
+            total: dec!(150.0),
+        };
+        repo.calc_client_account(&client_id, diff.clone()).await?;
+        repo.lock(&client_id, diff.clone()).await?;
+        let result = repo.calc_client_account(&client_id, diff.clone()).await;
+        assert!(result.is_err());
+        Ok(())
     }
 }

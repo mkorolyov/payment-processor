@@ -61,11 +61,9 @@ pub struct ClientAssets {
     pub total: rust_decimal::Decimal,
 }
 
-#[derive(Debug, Serialize, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct Client {
-    #[serde(rename = "client")]
     pub client_id: ClientId,
-    #[serde(flatten)]
     pub assets: ClientAssets,
     pub locked: bool,
 }
